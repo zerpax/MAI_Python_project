@@ -6,7 +6,6 @@ const Register = () => {
         name: '',
         email: '',
         password: '',
-        role: 'client', // Default role, can be changed to 'coach' or 'client'
     });
 
     const handleChange = (e) => {
@@ -62,12 +61,8 @@ const Register = () => {
                     onChange={handleChange}
                     required
                 />
-                <br />
-                <select name="role" value={formData.role} onChange={handleChange}>
-                    <option value="client">Client</option>
-                    <option value="coach">Coach</option>
-                </select>
-                <br />
+                
+
                 <button type="submit">Register</button>
             </form>
         </div>

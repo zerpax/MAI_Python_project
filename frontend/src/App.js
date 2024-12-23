@@ -4,8 +4,6 @@ import Register from './components/register';
 import Login from './components/login';
 
 const App = () => {
-    const coach_id = 9;
-
     return (
         <Router>
             <nav>
