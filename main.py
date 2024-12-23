@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from models import *
 
 #database setup
-database_URL = "postgresql+asyncpg://postgres:rj40Vt02lB60z@localhost:5432/{}" #связать с базой данных проекта
+database_URL = "postgresql+asyncpg://..." #связать с базой данных проекта
 engine = create_async_engine(database_URL,  echo=True)
 Session = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -117,7 +117,7 @@ def decode_jwt(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail='Invalid token')
 
 
-@app.get('/user/', response_model=UsersPublic)
+@app.get('/user/', response_model=UsersPublic) #для тестирования jwt токена
 async def get_user(user_info=Depends(decode_jwt), session: Session = Depends(get_session)):
     query = select(Users).where(Users.email == user_info['email'])
     result = await session.execute(query)
