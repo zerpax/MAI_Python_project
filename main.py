@@ -3,6 +3,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker, AsyncSession
+from sqlalchemy.sql import text
 from typing import AsyncGenerator, List
 import jwt
 import bcrypt
@@ -13,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from models import *
 
 #database setup
-database_URL = "postgresql+asyncpg://..." #связать с базой данных проекта
+database_URL = "postgresql+asyncpg://postgres:rj40Vt02lB60z@localhost:5432/python_project" #связать с базой данных проекта
 engine = create_async_engine(database_URL,  echo=True)
 Session = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -43,6 +44,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def create_db_and_tables():
     async with engine.begin() as conn:
+        await conn.execute(text('CREATE SCHEMA IF NOT EXISTS user_data'))
         await conn.run_sync(SQLModel.metadata.create_all)
 
 
@@ -126,5 +128,6 @@ async def get_user(user_info=Depends(decode_jwt), session: Session = Depends(get
         raise HTTPException(status_code=404, detail='User not found')
 
     return user
+
 
 
