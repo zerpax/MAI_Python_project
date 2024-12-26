@@ -1,9 +1,11 @@
+import asyncio
+
 from celery import Celery
 import numpy as np
 import pandas as pd
 from catboost import CatBoostClassifier
-from sqlalchemy import delete
-from sqlmodel import select
+from sqlalchemy import delete, create_engine
+from sqlmodel import select, Session
 from database import get_session
 from models import History, Scammers
 from config import BROKER_URL
@@ -42,8 +44,12 @@ model.load_model("IT_project/catboost_model.cbm")
 
 
 @app.task
-async def predict():
-    async with get_session() as session:
+def predict():
+    asyncio.run(run_prediction())
+
+
+async def run_prediction():
+    async for session in get_session():
         # Получаем данные из таблицы History
         result = await session.execute(select(History))
         result = result.scalars().all()
@@ -57,7 +63,7 @@ async def predict():
             flattened_row = {"id": row.id}
             for i, record in enumerate(history, start=1):
                 flattened_row[f"site{i}"] = record.get("site_id")
-                flattened_row[f"time{i}"] = record.get("timestamp")
+                flattened_row[f"time{i}"] = record.get("time")
             data.append(flattened_row)
 
         # Преобразуем в DataFrame
@@ -70,12 +76,9 @@ async def predict():
         predictions = model.predict(prepared_data)
         scam_ips = [user_ip for user_ip, prediction in zip(user_ips, predictions) if prediction == 1]
 
-        # Удаление всех записей из History
-        await session.execute(delete(History))
-
         # Получение существующих IP в таблице Scammers
         result = await session.execute(
-            select(Scammers.ip_address).filter(Scammers.ip_address.in_(scam_ips))
+            select(Scammers).where(Scammers.ip_address.in_(scam_ips))
         )
         existing_scam_ips = {row[0] for row in result.fetchall()}
 
@@ -87,5 +90,3 @@ async def predict():
 
         # Сохраняем изменения
         await session.commit()
-
-        return new_ips

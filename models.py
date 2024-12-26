@@ -24,7 +24,7 @@ class UsersRegister(UsersBase):
 
 class Users(UsersBase, table=True, schema='user_data'):
     __tablename__ = 'users'
-    # __table_args__ = {'schema': 'user_data'}
+    #__table_args__ = {'schema': 'user_data'}
     id: int | None = Field(default=None, primary_key=True)
     date_joined: datetime = Field(
         default_factory=lambda: datetime.now(UTC), sa_column=Column(TIMESTAMP(timezone=True))
@@ -46,24 +46,24 @@ class History(SQLModel, table=True):
     # last_visited_index: Optional[int] = Field(default=None)
 
 
-# def add_site(user_id: int, site_id: int, time: datetime):
-#     """Добавляет новый сайт в историю, заменяя старые, если необходимо"""
-#     # Получаем текущую историю посещений
-#     query = select(History).where(History.id == user_id)
-#     with get_session() as session:
-#         history = session.execute(query).scalars().first().history
-#
-#         # Перезаписываем первый элемент, если история уже полная
-#         if len(history) == 10:
-#             history.pop(0)  # Удаляем старый сайт
-#
-#         # Добавляем новый сайт с временной меткой
-#         history.append({"site": site_id, "time": time})
-#
-#         # Сохраняем изменения в базе данных
-#         query = update(History).where(History.id == user_id).values(history=history)
-#         session.execute(query)
-#         session.commit()
+def add_site(user_id: int, site_id: int, time: datetime):
+    """Добавляет новый сайт в историю, заменяя старые, если необходимо"""
+    # Получаем текущую историю посещений
+    query = select(History).where(History.id == user_id)
+    with get_session() as session:
+        history = session.execute(query).scalars().first().history
+
+        # Перезаписываем первый элемент, если история уже полная
+        if len(history) == 10:
+            history.pop(0)  # Удаляем старый сайт
+
+        # Добавляем новый сайт с временной меткой
+        history.append({"site": site_id, "time": time})
+
+        # Сохраняем изменения в базе данных
+        query = update(History).where(History.id == user_id).values(history=history)
+        session.execute(query)
+        session.commit()
 
 
 class Scammers(SQLModel, table=True):

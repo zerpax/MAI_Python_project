@@ -9,12 +9,17 @@ import jwt
 import bcrypt
 from datetime import timedelta
 from fastapi.middleware.cors import CORSMiddleware
+from config import DATABASE_URL
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from tasks import predict  # Celery-задача
+import logging
 
 
 from models import *
 
 #database setup
-database_URL = "postgresql+asyncpg://postgres:rj40Vt02lB60z@localhost:5432/python_project" #связать с базой данных проекта
+database_URL = DATABASE_URL #связать с базой данных проекта
 engine = create_async_engine(database_URL,  echo=True)
 Session = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -40,12 +45,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+scheduler = AsyncIOScheduler()
+
 
 @app.on_event("startup")
 async def create_db_and_tables():
+    scheduler.add_job(
+        predict.delay,
+        trigger=CronTrigger(hour=0, minute=0),  # Ежедневно в полночь
+        id='daily_predict_task',
+        replace_existing=True
+    )
+    scheduler.start()
+    logger.info("APScheduler запущен")
     async with engine.begin() as conn:
         await conn.execute(text('CREATE SCHEMA IF NOT EXISTS user_data'))
         await conn.run_sync(SQLModel.metadata.create_all)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler.shutdown()
+    logger.info("APScheduler остановлен")
+    await engine.dispose()
 
 
 @app.post('/register/', response_model=UsersPublic)# register user
