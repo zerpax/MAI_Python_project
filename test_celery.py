@@ -23,9 +23,9 @@ def process_and_store_data(csv_file: str, db_url: str):
     engine = create_engine(db_url)
 
     with Session(engine) as session:
-        session.exec(text("ALTER SEQUENCE history_id_seq START WITH 1"))
-        session.exec(text("ALTER SEQUENCE scammers_id_seq START WITH 1"))
-        session.commit()
+        # session.exec(text("ALTER SEQUENCE history_id_seq START WITH 1"))
+        # session.exec(text("ALTER SEQUENCE scammers_id_seq START WITH 1"))
+        # session.commit()
         for _, row in df.iterrows():
             # Создаем список истории для текущей строки
             history_data = [

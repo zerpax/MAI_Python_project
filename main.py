@@ -10,7 +10,7 @@ import jwt
 import bcrypt
 from datetime import timedelta
 from fastapi.middleware.cors import CORSMiddleware
-from config import DATABASE_URL
+from config import DATABASE_URL, SECRET_KEY, ALGORITHM
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from tasks import predict  # Celery-задача
@@ -32,8 +32,8 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 #JWT
-key = "pogchamp" #change later
-jwt_algorithm = 'HS256'
+key = SECRET_KEY #change later
+jwt_algorithm = ALGORITHM
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
 
 
@@ -156,32 +156,34 @@ async def get_user(user_info=Depends(decode_jwt), session: Session = Depends(get
     return user
 
 
-@app.post('/history/', response_model=HistoryPublic)
-async def post_history(history_data: HistoryPublic, session: AsyncSession = Depends(get_session)):
-    ip_address = history_data.ip_address
+@app.post('/history/', response_model=VisitPublic)
+async def post_history(visit_data: VisitPublic, session: AsyncSession = Depends(get_session)):
+    ip_address = visit_data.ip_address
 
     # Проверяем, есть ли запись для данного IP
     query = select(History).where(History.ip_address == ip_address)
     result = await session.execute(query)
     existing_history = result.scalars().first()
+    new_visit = VisitPublic(ip_address=ip_address, site_id=visit_data.site_id, time=visit_data.time)
 
     if not existing_history:
         # Если записи нет, создаем новую
-        new_history = History(ip_address=ip_address, history=[history_data.history])
+        new_history = History(ip_address=ip_address, history=[{'site': visit_data.site_id, 'time': visit_data.time}])
         session.add(new_history)
         await session.commit()
         await session.refresh(new_history)  # Обновляем объект после сохранения
-        return new_history
+        return new_visit
     else:
         # Если запись есть, обновляем историю
         if len(existing_history.history) >= 10:
             existing_history.history.pop(0)  # Удаляем самый старый элемент
-        existing_history.history.append(history_data.history)  # Добавляем новый элемент
-
+        existing_history.history.append({'site': visit_data.site_id, 'time': visit_data.time})  # Добавляем новый элемент
+        query = update(History).where(History.ip_address == ip_address).values(history=existing_history.history)
         # Обновляем запись в базе данных
+        await session.execute(query)
         await session.commit()
         await session.refresh(existing_history)  # Обновляем объект после сохранения
-        return existing_history
+        return new_visit
 
 
 @app.get('/scammers/', response_model=List[ScammersPublic])

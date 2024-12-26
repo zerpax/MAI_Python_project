@@ -36,11 +36,14 @@ class UsersPublic(UsersBase):
     id: int
     date_joined: datetime
 
-
 #history
-class HistoryPublic(SQLModel):
+class VisitBase(SQLModel):
+    site_id: int
+    time: str
+
+
+class VisitPublic(VisitBase):
     ip_address: str
-    history: dict
 
 
 class History(SQLModel, table=True):
