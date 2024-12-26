@@ -1,4 +1,6 @@
 from typing import Annotated
+from zoneinfo import ZoneInfo
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import update
@@ -15,20 +17,12 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from tasks import predict  # Celery-задача
 import logging
+from Yoomoney.payment_routes import router as payment_router
+from Yoomoney.subscription_routes import router as subscription_router
+from database import get_session, engine, Session
 
 
 from models import *
-
-#database setup
-database_URL = DATABASE_URL #связать с базой данных проекта
-engine = create_async_engine(database_URL,  echo=True)
-Session = async_sessionmaker(engine, expire_on_commit=False)
-
-
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with Session() as session:
-        yield session
-
 
 
 #JWT
@@ -50,6 +44,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
+
+app.include_router(payment_router, prefix="/payment", tags=["Payments"])
+app.include_router(subscription_router, prefix="/subscription", tags=["Subscriptions"])
 
 
 @app.on_event("startup")
@@ -164,33 +161,41 @@ async def post_history(visit_data: VisitPublic, session: AsyncSession = Depends(
     query = select(History).where(History.ip_address == ip_address)
     result = await session.execute(query)
     existing_history = result.scalars().first()
-    new_visit = VisitPublic(ip_address=ip_address, site_id=visit_data.site_id, time=visit_data.time)
 
     if not existing_history:
         # Если записи нет, создаем новую
-        new_history = History(ip_address=ip_address, history=[{'site': visit_data.site_id, 'time': visit_data.time}])
+        new_history = History(ip_address=ip_address, history=[{'site_id': visit_data.site_id, 'time': visit_data.time}])
         session.add(new_history)
         await session.commit()
         await session.refresh(new_history)  # Обновляем объект после сохранения
-        return new_visit
+        return visit_data
     else:
         # Если запись есть, обновляем историю
         if len(existing_history.history) >= 10:
             existing_history.history.pop(0)  # Удаляем самый старый элемент
-        existing_history.history.append({'site': visit_data.site_id, 'time': visit_data.time})  # Добавляем новый элемент
+        existing_history.history.append({'site_id': visit_data.site_id, 'time': visit_data.time})  # Добавляем новый элемент
         query = update(History).where(History.ip_address == ip_address).values(history=existing_history.history)
         # Обновляем запись в базе данных
         await session.execute(query)
         await session.commit()
         await session.refresh(existing_history)  # Обновляем объект после сохранения
-        return new_visit
+        return visit_data
 
 
-@app.get('/scammers/', response_model=List[ScammersPublic])
-def get_scammers(session: Session = Depends(get_session)):
+@app.get('/scammers/', response_model=List[ScammerPublic])
+async def get_scammers(user_id: int, session: Session = Depends(get_session)):
+    query = select(Subscriptions).where(Subscriptions.user_id == user_id)
+    result = await session.execute(query)
+    subscription_info = result.scalars().first()
+
+    if not subscription_info:
+        raise HTTPException(status_code=404, detail='Subscription not found')
+    if subscription_info.end_date < datetime.now(ZoneInfo("Europe/Moscow")):
+        raise HTTPException(status_code=404, detail='Subscription expired')
+
     query = select(Scammers.ip_address)  # Выбираем только ip_address
-    result = session.execute(query)
-    scammers = [row[0] for row in result.fetchall()]  # Преобразуем результат в список ip_address
+    result = await session.execute(query)
+    scammers = [ScammerPublic(**row._asdict()) for row in result.fetchall()]  # Преобразуем результат в список ip_address
     return scammers
 
 
