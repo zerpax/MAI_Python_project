@@ -1,6 +1,7 @@
 from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy import update
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker, AsyncSession
 from sqlalchemy.sql import text
@@ -154,5 +155,40 @@ async def get_user(user_info=Depends(decode_jwt), session: Session = Depends(get
 
     return user
 
+
+@app.post('/history/', response_model=HistoryPublic)
+async def post_history(history_data: HistoryPublic, session: AsyncSession = Depends(get_session)):
+    ip_address = history_data.ip_address
+
+    # Проверяем, есть ли запись для данного IP
+    query = select(History).where(History.ip_address == ip_address)
+    result = await session.execute(query)
+    existing_history = result.scalars().first()
+
+    if not existing_history:
+        # Если записи нет, создаем новую
+        new_history = History(ip_address=ip_address, history=[history_data.history])
+        session.add(new_history)
+        await session.commit()
+        await session.refresh(new_history)  # Обновляем объект после сохранения
+        return new_history
+    else:
+        # Если запись есть, обновляем историю
+        if len(existing_history.history) >= 10:
+            existing_history.history.pop(0)  # Удаляем самый старый элемент
+        existing_history.history.append(history_data.history)  # Добавляем новый элемент
+
+        # Обновляем запись в базе данных
+        await session.commit()
+        await session.refresh(existing_history)  # Обновляем объект после сохранения
+        return existing_history
+
+
+@app.get('/scammers/', response_model=List[ScammersPublic])
+def get_scammers(session: Session = Depends(get_session)):
+    query = select(Scammers.ip_address)  # Выбираем только ip_address
+    result = session.execute(query)
+    scammers = [row[0] for row in result.fetchall()]  # Преобразуем результат в список ip_address
+    return scammers
 
 

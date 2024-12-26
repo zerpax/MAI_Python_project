@@ -38,6 +38,11 @@ class UsersPublic(UsersBase):
 
 
 #history
+class HistoryPublic(SQLModel):
+    ip_address: str
+    history: dict
+
+
 class History(SQLModel, table=True):
     __tablename__ = 'history'
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -46,24 +51,28 @@ class History(SQLModel, table=True):
     # last_visited_index: Optional[int] = Field(default=None)
 
 
-def add_site(user_id: int, site_id: int, time: datetime):
-    """Добавляет новый сайт в историю, заменяя старые, если необходимо"""
-    # Получаем текущую историю посещений
-    query = select(History).where(History.id == user_id)
-    with get_session() as session:
-        history = session.execute(query).scalars().first().history
+# def add_site(user_id: int, site_id: int, time: datetime):
+#     """Добавляет новый сайт в историю, заменяя старые, если необходимо"""
+#     # Получаем текущую историю посещений
+#     query = select(History).where(History.id == user_id)
+#     with get_session() as session:
+#         history = session.execute(query).scalars().first().history
+#
+#         # Перезаписываем первый элемент, если история уже полная
+#         if len(history) == 10:
+#             history.pop(0)  # Удаляем старый сайт
+#
+#         # Добавляем новый сайт с временной меткой
+#         history.append({"site": site_id, "time": time})
+#
+#         # Сохраняем изменения в базе данных
+#         query = update(History).where(History.id == user_id).values(history=history)
+#         session.execute(query)
+#         session.commit()
 
-        # Перезаписываем первый элемент, если история уже полная
-        if len(history) == 10:
-            history.pop(0)  # Удаляем старый сайт
 
-        # Добавляем новый сайт с временной меткой
-        history.append({"site": site_id, "time": time})
-
-        # Сохраняем изменения в базе данных
-        query = update(History).where(History.id == user_id).values(history=history)
-        session.execute(query)
-        session.commit()
+class ScammersPublic(SQLModel):
+    ip_address: str
 
 
 class Scammers(SQLModel, table=True):
