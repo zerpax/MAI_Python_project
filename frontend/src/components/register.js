@@ -18,9 +18,9 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('http://127.0.0.1:8000/register/',  new URLSearchParams(formData), {
+            const response = await axios.post('http://127.0.0.1:8000/register/',  formData, {
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/json',
                 },
             });
             alert('User registered successfully!');

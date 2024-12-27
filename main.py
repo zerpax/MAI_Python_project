@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker, AsyncSession
@@ -131,3 +131,14 @@ async def get_user(user_info=Depends(decode_jwt), session: Session = Depends(get
 
 
 
+@app.get("/get-user-ip")
+async def get_user_ip(request: Request):
+    # Check for `X-Forwarded-For` header (set by proxies/load balancers)
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        user_ip = x_forwarded_for.split(",")[0]  # First IP in the list is the client's real IP
+    else:
+        # Fallback to `request.client.host`
+        user_ip = request.client.host
+
+    return {"ip": user_ip}
