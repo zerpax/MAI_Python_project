@@ -132,10 +132,10 @@ def decode_jwt(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, key, algorithms=[jwt_algorithm])
         email = payload['email']
-        role = payload['role']
+        id = payload['id']
         if email is None:
             raise HTTPException(status_code=401, detail='Invalid token')
-        return {'email': email, 'role': role}
+        return {'id': id,'email': email}
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail='Token expired')
@@ -184,8 +184,8 @@ async def post_history(visit_data: VisitPublic, session: AsyncSession = Depends(
 
 
 @app.get('/scammers/', response_model=List[ScammerPublic])
-async def get_scammers(user_id: int, session: Session = Depends(get_session)):
-    query = select(Subscriptions).where(Subscriptions.user_id == user_id)
+async def get_scammers(user_info=Depends(decode_jwt), session: Session = Depends(get_session)):
+    query = select(Subscriptions).where(Subscriptions.user_id == user_info['id'])
     result = await session.execute(query)
     subscription_info = result.scalars().first()
 
