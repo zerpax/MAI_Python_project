@@ -21,3 +21,10 @@ npm install
 npm start
 ```
 Таким образом, когда фронт и бэк работают одновременно проект будет работать
+
+## Celery и APScheduler
+Перед этим установить RabbitMQ. По умолчанию запускается на localhost:5672
+```
+celery -A tasks worker --loglevel=info --pool=solo
+python scheduler.py
+```
