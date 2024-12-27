@@ -61,7 +61,6 @@ async def create_db_and_tables():
     scheduler.start()
     logger.info("APScheduler запущен")
     async with engine.begin() as conn:
-        await conn.execute(text('CREATE SCHEMA IF NOT EXISTS user_data'))
         await conn.run_sync(SQLModel.metadata.create_all)
 
 
@@ -154,8 +153,15 @@ async def get_user(user_info=Depends(decode_jwt), session: Session = Depends(get
     return user
 
 
-@app.post('/history/', response_model=VisitPublic)
-async def post_history(visit_data: VisitPublic, session: AsyncSession = Depends(get_session)):
+@app.post('/history/', response_model=VisitRequest)
+async def post_history(visit_data: VisitRequest, session: AsyncSession = Depends(get_session)):
+    url = URLs(url = visit_data.url)
+    session.add(url)
+    await session.commit()
+    await session.refresh(url)
+
+    site_id = url.id
+
     ip_address = visit_data.ip_address
 
     # Проверяем, есть ли запись для данного IP
@@ -165,7 +171,7 @@ async def post_history(visit_data: VisitPublic, session: AsyncSession = Depends(
 
     if not existing_history:
         # Если записи нет, создаем новую
-        new_history = History(ip_address=ip_address, history=[{'site_id': visit_data.site_id, 'time': visit_data.time}])
+        new_history = History(ip_address=ip_address, history=[{'site_id': site_id, 'time': visit_data.time}])
         session.add(new_history)
         await session.commit()
         await session.refresh(new_history)  # Обновляем объект после сохранения
@@ -174,7 +180,7 @@ async def post_history(visit_data: VisitPublic, session: AsyncSession = Depends(
         # Если запись есть, обновляем историю
         if len(existing_history.history) >= 10:
             existing_history.history.pop(0)  # Удаляем самый старый элемент
-        existing_history.history.append({'site_id': visit_data.site_id, 'time': visit_data.time})  # Добавляем новый элемент
+        existing_history.history.append({'site_id': site_id, 'time': visit_data.time})  # Добавляем новый элемент
         query = update(History).where(History.ip_address == ip_address).values(history=existing_history.history)
         # Обновляем запись в базе данных
         await session.execute(query)
@@ -211,3 +217,4 @@ async def get_user_ip(request: Request):
         user_ip = request.client.host
 
     return {"ip": user_ip}
+

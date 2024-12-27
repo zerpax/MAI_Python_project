@@ -8,7 +8,7 @@
 
 
   class TrackerSDK {
-    static endpoint = 'http://127.0.0.1:8000/history'; // Default endpoint
+    static endpoint = 'http://127.0.0.1:8000/history/'; // Default endpoint
 
     static init(endpoint = null) {
       if (TrackerSDK.initialized) {
@@ -36,21 +36,23 @@
     static async trackVisit() {
       const IP = await this.getUserIp().then((IP) => IP)
       const visitData = {
-        url: window.location.href,
         ip_address: IP,
-        timestamp: new Date().toISOString(),
+        time: new Date().toISOString(),
+        url: window.location.href,
       };
       console.log(visitData)
       TrackerSDK.sendData(visitData);
     }
 
     static async sendData(data) {
+      // const token = localStorage.getItem('token');
       console.log('Sending data:', data);
       fetch(TrackerSDK.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        // Authorization: `Bearer ${token}`,
         credentials: 'include',
         body: JSON.stringify(data),
       })

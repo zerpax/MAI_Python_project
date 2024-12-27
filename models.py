@@ -36,13 +36,20 @@ class UsersPublic(UsersBase):
     date_joined: datetime
 
 #history
+
+class URLs(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    url: str
+
 class VisitBase(SQLModel):
-    site_id: int
+    ip_address: str
     time: str
 
+class VisitRequest(VisitBase):
+    url: str
 
 class VisitPublic(VisitBase):
-    ip_address: str
+    site_id: int
 
 
 class History(SQLModel, table=True):
